@@ -61,11 +61,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             return Result.fail("手机号格式错误");
         }
         
-//        // 验证手机号是否与发送验证码时的手机号一致
-//        Object sessionPhone = session.getAttribute("phone");
-//        if (sessionPhone == null || !sessionPhone.equals(phone)) {
-//            return Result.fail("手机号与发送验证码的手机号不一致");
-//        }
+        // 验证手机号是否与发送验证码时的手机号一致
+        Object sessionPhone = session.getAttribute("phone");
+        if (sessionPhone == null || !sessionPhone.equals(phone)) {
+            return Result.fail("手机号与发送验证码的手机号不一致");
+        }
         
         // 验证验证码是否正确
         Object code = session.getAttribute("code");
