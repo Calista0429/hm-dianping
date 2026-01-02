@@ -32,8 +32,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     public Result sendcode(String phone, HttpSession session) {
 
         // 1.判断提交的手机号是否合规
-
-
         if (RegexUtils.isPhoneInvalid(phone)) {
             // 1.1 不符合则返回错误信息
             return Result.fail("手机号不符合规范");
@@ -43,8 +41,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         // 1.2 符合生成验证码
         String code = RandomUtil.randomNumbers(6);
 
-        // 2 保存验证码到session
+        // 2 保存验证码和手机号到session（绑定验证码与手机号）
         session.setAttribute("code", code);
+        session.setAttribute("phone", phone);
 
         // 3 发送验证码
         log.debug("发送验证码成功，验证码为 {}", code);
@@ -59,10 +58,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         //验证发送的验证码和手机号
         String phone = loginForm.getPhone();
         if (RegexUtils.isPhoneInvalid(phone)) {
-            Result.fail("手机号格式错误");
+            return Result.fail("手机号格式错误");
         }
+        
+//        // 验证手机号是否与发送验证码时的手机号一致
+//        Object sessionPhone = session.getAttribute("phone");
+//        if (sessionPhone == null || !sessionPhone.equals(phone)) {
+//            return Result.fail("手机号与发送验证码的手机号不一致");
+//        }
+        
+        // 验证验证码是否正确
         Object code = session.getAttribute("code");
-        //如果手机号和验证码不一致，报错
         if (code == null || !code.equals(loginForm.getCode())) {
             return Result.fail("验证码错误");
         }
