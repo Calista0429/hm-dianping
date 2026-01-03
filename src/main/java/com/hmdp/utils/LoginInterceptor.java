@@ -1,31 +1,52 @@
 package com.hmdp.utils;
 
+import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.util.StrUtil;
 import com.hmdp.dto.UserDTO;
-import com.hmdp.entity.User;
-import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
+import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
+import static com.hmdp.utils.RedisConstants.LOGIN_USER_KEY;
+import static com.hmdp.utils.RedisConstants.LOGIN_USER_TTL;
+
+@Component
 public class LoginInterceptor implements HandlerInterceptor {
+
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
+
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+
         //1.从session中获得用户
-        HttpSession session = request.getSession();
-        Object user = session.getAttribute("user");
+        String token = request.getHeader("authorization");
+        if (StrUtil.isBlank(token)) {
+            response.setStatus(401);
+            return false;
+        }
+        String key = LOGIN_USER_KEY + token;
+        Map<Object, Object> userMap = stringRedisTemplate.opsForHash().entries(key);
         //2.判断用户是否存在
-        if (user == null) {
+        if (userMap.isEmpty()) {
             //3.不存在则拦截
             response.setStatus(401);
             return false;
         }
 
         //4.存在将用户保存到threadlocal并且放行
-        UserDTO userDTO = new UserDTO();
-        BeanUtils.copyProperties(user, userDTO);
+        UserDTO userDTO = BeanUtil.fillBeanWithMap(userMap, new UserDTO(), false);
+
         UserHolder.saveUser(userDTO);
+
+        //刷新token有效期
+        stringRedisTemplate.expire(key,LOGIN_USER_TTL, TimeUnit.MINUTES);
         return true;
     }
 
