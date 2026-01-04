@@ -1,6 +1,7 @@
 package com.hmdp.config;
 
 import com.hmdp.utils.LoginInterceptor;
+import com.hmdp.utils.RefreshInterceptor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -12,6 +13,8 @@ public class MvcConfig implements WebMvcConfigurer {
 
     @Resource
     private LoginInterceptor loginInterceptor;
+    @Resource
+    private RefreshInterceptor refreshInterceptor;
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
@@ -23,6 +26,8 @@ public class MvcConfig implements WebMvcConfigurer {
                         "/upload/**",
                         "/user/login",
                         "/user/code"
-                );
+                ).order(1);
+        registry.addInterceptor(refreshInterceptor).addPathPatterns("/**").order(0);
+
     }
 }
