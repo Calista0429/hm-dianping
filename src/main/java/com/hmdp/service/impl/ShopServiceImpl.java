@@ -45,11 +45,17 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
 //        Shop shop = cacheClient.queryByIdWithPassThrough(CACHE_SHOP_KEY, id, Shop.class, CACHE_SHOP_TTL, TimeUnit.MINUTES,this::getById);
         //利用互斥锁解决缓存击穿
 //        Shop shop = cacheClient.queryByIdWithMutex(CACHE_SHOP_KEY, id, Shop.class, CACHE_SHOP_TTL, TimeUnit.MINUTES, this::getById);
-        //利用逻辑过期解决缓存穿透
+        //利用逻辑过期解决缓存穿透和缓存击穿
         Shop shop = cacheClient.queryByIdWithLogical(CACHE_SHOP_KEY, id, Shop.class, CACHE_SHOP_TTL, TimeUnit.MINUTES, this::getById);
 
+        // 如果缓存不存在，从数据库查询并写入缓存
         if (shop == null) {
-            return Result.fail("店铺不存在！");
+            shop = getById(id);
+            if (shop == null) {
+                return Result.fail("店铺不存在！");
+            }
+            // 将数据写入缓存（使用逻辑过期方式）
+            cacheClient.setWithLogicalExpire(CACHE_SHOP_KEY + id, shop, CACHE_SHOP_TTL, TimeUnit.MINUTES);
         }
         return Result.ok(shop);
     }
@@ -61,7 +67,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
         updateById(shop);
         Long shopId = shop.getId();
         if (shopId == null) {
-            Result.fail("店铺id不能为空");
+            return Result.fail("店铺id不能为空");
         }
         //清理缓存
         stringRedisTemplate.delete(CACHE_SHOP_KEY + shopId);
