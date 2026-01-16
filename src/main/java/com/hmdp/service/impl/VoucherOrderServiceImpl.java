@@ -11,9 +11,12 @@ import com.hmdp.service.IVoucherOrderService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.service.IVoucherService;
 import com.hmdp.utils.RedisIdWorker;
+import com.hmdp.utils.SimpleRedisLock;
 import com.hmdp.utils.UserHolder;
 import org.springframework.aop.framework.AopContext;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +39,9 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 
     @Resource
     private RedisIdWorker redisIdWorker;
+
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
 
     @Override
     public Result seckillsave(Long voucherId) {
@@ -62,10 +68,28 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         //添加悲观锁
         // 如果字符常量池中已经包含一个等于此String对象的字符串,则返回常量池中字符串的引用
         // 对于任意两个字符串 s 和 t，当且仅当 s.equals(t) 为 true 时，s.intern() == t.intern() 才为 true
-        synchronized (userId.toString().intern()) {
+//        synchronized (userId.toString().intern()) {
+//            IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
+//            return proxy.createVoucher(voucherId);
+//        }
+
+        //基于Redis实现集群之间互斥锁
+        SimpleRedisLock lock = new SimpleRedisLock("order", stringRedisTemplate);
+        boolean isLock = lock.tryLock(3);
+        if (!isLock) {
+            //获取锁失败
+            return Result.fail("一个人只允许下一单");
+        }
+        try{
+            //获取代理对象
             IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
             return proxy.createVoucher(voucherId);
+
+        }finally {
+            //删除锁
+            lock.unlock();
         }
+
 
     }
 
